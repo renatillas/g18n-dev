@@ -152,8 +152,7 @@ fn generate_po_translations() -> SnagResult(String) {
 
 fn generate_translation_report(primary_locale: String) -> SnagResult(Nil) {
   use project_name <- result.try(get_project_name())
-  use locale_files <- result.try(find_locale_files(project_name))
-  use locale_data <- result.try(load_all_locales(locale_files))
+  use locale_data <- result.try(try_load_translations(project_name))
   
   // Determine primary locale
   let primary = case primary_locale {
@@ -198,6 +197,59 @@ fn generate_translation_report(primary_locale: String) -> SnagResult(Nil) {
       io.println("❌ Primary locale '" <> primary <> "' not found!")
       io.println("Available locales: " <> string.join(list.map(locale_data, fn(pair) { pair.0 }), ", "))
       snag.error("Primary locale not found")
+    }
+  }
+}
+
+fn try_load_translations(project_name: String) -> SnagResult(List(#(String, g18n.Translations))) {
+  // Try flat JSON first
+  case find_locale_files(project_name) {
+    Ok(files) -> {
+      case load_all_locales(files) {
+        Ok(data) -> {
+          io.println("📁 Detected format: Flat JSON")
+          Ok(data)
+        }
+        Error(_) -> {
+          // Try nested JSON
+          case load_all_locales_from_nested(files) {
+            Ok(data) -> {
+              io.println("📁 Detected format: Nested JSON")
+              Ok(data)
+            }
+            Error(_) -> {
+              // Try PO files
+              case find_po_files(project_name) {
+                Ok(po_files) -> {
+                  case load_all_locales_from_po(po_files) {
+                    Ok(data) -> {
+                      io.println("📁 Detected format: PO files")
+                      Ok(data)
+                    }
+                    Error(e) -> Error(e)
+                  }
+                }
+                Error(_) -> snag.error("No valid translation files found. Tried flat JSON, nested JSON, and PO formats.")
+              }
+            }
+          }
+        }
+      }
+    }
+    Error(_) -> {
+      // Try PO files directly if no JSON files found
+      case find_po_files(project_name) {
+        Ok(po_files) -> {
+          case load_all_locales_from_po(po_files) {
+            Ok(data) -> {
+              io.println("📁 Detected format: PO files")
+              Ok(data)
+            }
+            Error(e) -> Error(e)
+          }
+        }
+        Error(_) -> snag.error("No translation files found in src/" <> project_name <> "/translations/")
+      }
     }
   }
 }

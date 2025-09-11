@@ -18,7 +18,7 @@ The CLI provides commands to generate Gleam translation modules from various fil
 ### Generate from Flat JSON Files
 
 ```sh
-gleam run generate
+gleam run -m g18n/dev generate
 ```
 
 Place flat JSON files in `src/<project>/translations/` directory:
@@ -35,7 +35,7 @@ Place flat JSON files in `src/<project>/translations/` directory:
 ### Generate from Nested JSON Files
 
 ```sh
-gleam run generate --nested
+gleam run -m g18n/dev generate --nested
 ```
 
 Place nested JSON files in `src/<project>/translations/` directory:
@@ -60,7 +60,7 @@ This format is compatible with popular i18n libraries like react-i18next, Vue i1
 ### Generate from PO Files (gettext)
 
 ```sh
-gleam run generate --po
+gleam run -m g18n/dev generate --po
 ```
 
 Place PO files in `src/<project>/translations/` directory:
@@ -73,10 +73,29 @@ msgid "user.name"
 msgstr "Name"
 ```
 
+### Translation Coverage Report
+
+```sh
+gleam run -m g18n/dev report
+```
+
+Generate a comprehensive translation coverage report that automatically detects your file format (flat JSON, nested JSON, or PO files) and shows:
+
+- Coverage percentages for each locale
+- Missing translation keys
+- Validation errors and warnings
+- Primary locale comparison
+
+```sh
+gleam run -m g18n/dev report --primary es
+```
+
+Use a specific locale as the primary reference for comparison.
+
 ### Help
 
 ```sh
-gleam run help
+gleam run -m g18n/dev help
 ```
 
 ## File Naming Convention
@@ -114,9 +133,9 @@ pub fn main() {
 ## Development
 
 ```sh
-gleam run   # Show help
-gleam test  # Run the tests
-gleam format # Format the code
+gleam run -m g18n/dev help   # Show help
+gleam test                   # Run the tests
+gleam format                 # Format the code
 ```
 
 ## Documentation
