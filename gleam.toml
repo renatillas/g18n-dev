@@ -8,7 +8,7 @@ links = [{ title = "Website", href = "https://github.com/renatillas/g18n-dev" }]
 
 [dependencies]
 gleam_stdlib = ">= 0.44.0 and < 2.0.0"
-g18n = { path = "../g18n" }
+g18n = ">= 3.0.0 and < 4.0.0"
 argv = ">= 1.0.0 and < 2.0.0"
 filepath = ">= 1.0.0 and < 2.0.0"
 simplifile = ">= 2.0.0 and < 3.0.0"

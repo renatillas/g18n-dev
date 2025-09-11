@@ -4,7 +4,7 @@
 packages = [
   { name = "argv", version = "1.0.2", build_tools = ["gleam"], requirements = [], otp_app = "argv", source = "hex", outer_checksum = "BA1FF0929525DEBA1CE67256E5ADF77A7CDDFE729E3E3F57A5BDCAA031DED09D" },
   { name = "filepath", version = "1.1.2", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "filepath", source = "hex", outer_checksum = "B06A9AF0BF10E51401D64B98E4B627F1D2E48C154967DA7AF4D0914780A6D40A" },
-  { name = "g18n", version = "2.1.0", build_tools = ["gleam"], requirements = ["argv", "filepath", "gleam_community_maths", "gleam_json", "gleam_regexp", "gleam_stdlib", "gleam_time", "shellout", "simplifile", "snag", "splitter", "tom", "trie_again"], source = "local", path = "../g18n" },
+  { name = "g18n", version = "3.0.0", build_tools = ["gleam"], requirements = ["gleam_community_maths", "gleam_json", "gleam_regexp", "gleam_stdlib", "gleam_time", "splitter", "trie_again"], otp_app = "g18n", source = "hex", outer_checksum = "1B31EECBFC9D74CA38845AD2A2CA0197E7D04F522EDAC48B2E69E763E8B58280" },
   { name = "gleam_community_maths", version = "2.0.0", build_tools = ["gleam"], requirements = ["gleam_stdlib", "gleam_yielder"], otp_app = "gleam_community_maths", source = "hex", outer_checksum = "C9EFF6BCF3C9D113EF9837655B0128CA8CAC295131E9F3468F93C1D78EC3E013" },
   { name = "gleam_json", version = "3.0.2", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "gleam_json", source = "hex", outer_checksum = "874FA3C3BB6E22DD2BB111966BD40B3759E9094E05257899A7C08F5DE77EC049" },
   { name = "gleam_regexp", version = "1.1.1", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "gleam_regexp", source = "hex", outer_checksum = "9C215C6CA84A5B35BB934A9B61A9A306EC743153BE2B0425A0D032E477B062A9" },
@@ -23,7 +23,7 @@ packages = [
 [requirements]
 argv = { version = ">= 1.0.0 and < 2.0.0" }
 filepath = { version = ">= 1.0.0 and < 2.0.0" }
-g18n = { path = "../g18n" }
+g18n = { version = ">= 3.0.0 and < 4.0.0" }
 gleam_json = { version = ">= 3.0.0 and < 4.0.0" }
 gleam_stdlib = { version = ">= 0.44.0 and < 2.0.0" }
 gleeunit = { version = ">= 1.0.0 and < 2.0.0" }
