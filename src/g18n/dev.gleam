@@ -153,7 +153,7 @@ fn generate_po_translations() -> SnagResult(String) {
 fn generate_translation_report(primary_locale: String) -> SnagResult(Nil) {
   use project_name <- result.try(get_project_name())
   use locale_data <- result.try(try_load_translations(project_name))
-  
+
   // Determine primary locale
   let primary = case primary_locale {
     "" -> {
@@ -164,22 +164,27 @@ fn generate_translation_report(primary_locale: String) -> SnagResult(Nil) {
     }
     locale -> locale
   }
-  
+
   // Find primary locale data
   case list.find(locale_data, fn(pair) { pair.0 == primary }) {
     Ok(#(_, primary_translations)) -> {
       io.println("📊 Translation Validation Report")
       io.println("Primary locale: " <> primary)
       io.println("")
-      
+
       // Generate reports for each locale compared to primary
       list.each(locale_data, fn(pair) {
         let #(locale_code, translations) = pair
-        
+
         // Create locale for validation
         case locale.new(string.replace(locale_code, each: "_", with: "-")) {
           Ok(target_locale) -> {
-            let report = g18n.validate_translations(primary_translations, translations, target_locale)
+            let report =
+              g18n.validate_translations(
+                primary_translations,
+                translations,
+                target_locale,
+              )
             io.println("🌍 " <> locale_code <> ":")
             io.println(g18n.export_validation_report(report))
             io.println("")
@@ -190,18 +195,23 @@ fn generate_translation_report(primary_locale: String) -> SnagResult(Nil) {
           }
         }
       })
-      
+
       Ok(Nil)
     }
     Error(_) -> {
       io.println("❌ Primary locale '" <> primary <> "' not found!")
-      io.println("Available locales: " <> string.join(list.map(locale_data, fn(pair) { pair.0 }), ", "))
+      io.println(
+        "Available locales: "
+        <> string.join(list.map(locale_data, fn(pair) { pair.0 }), ", "),
+      )
       snag.error("Primary locale not found")
     }
   }
 }
 
-fn try_load_translations(project_name: String) -> SnagResult(List(#(String, g18n.Translations))) {
+fn try_load_translations(
+  project_name: String,
+) -> SnagResult(List(#(String, g18n.Translations))) {
   // Try flat JSON first
   case find_locale_files(project_name) {
     Ok(files) -> {
@@ -229,7 +239,10 @@ fn try_load_translations(project_name: String) -> SnagResult(List(#(String, g18n
                     Error(e) -> Error(e)
                   }
                 }
-                Error(_) -> snag.error("No valid translation files found. Tried flat JSON, nested JSON, and PO formats.")
+                Error(_) ->
+                  snag.error(
+                    "No valid translation files found. Tried flat JSON, nested JSON, and PO formats.",
+                  )
               }
             }
           }
@@ -248,7 +261,12 @@ fn try_load_translations(project_name: String) -> SnagResult(List(#(String, g18n
             Error(e) -> Error(e)
           }
         }
-        Error(_) -> snag.error("No translation files found in src/" <> project_name <> "/translations/")
+        Error(_) ->
+          snag.error(
+            "No translation files found in src/"
+            <> project_name
+            <> "/translations/",
+          )
       }
     }
   }
