@@ -1,0 +1,18 @@
+{
+  "app.title": "Meine Anwendung",
+  "app.description": "Eine Beispielanwendung zum Testen von Übersetzungen",
+  "nav.home": "Startseite",
+  "nav.about": "Über uns",
+  "nav.contact": "Kontakt",
+  "user.login": "Anmelden",
+  "user.logout": "Abmelden",
+  "user.profile": "Profil",
+  "user.settings": "Einstellungen",
+  "messages.welcome": "Willkommen in unserer App!",
+  "messages.goodbye": "Danke, dass Sie unsere App nutzen!",
+  "errors.not_found": "Seite nicht gefunden",
+  "errors.server_error": "Interner Serverfehler",
+  "buttons.save": "Speichern",
+  "buttons.cancel": "Abbrechen",
+  "buttons.delete": "Löschen"
+}

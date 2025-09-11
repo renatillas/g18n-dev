@@ -1,0 +1,18 @@
+{
+  "app.title": "My Application",
+  "app.description": "A sample application for testing translations",
+  "nav.home": "Home",
+  "nav.about": "About",
+  "nav.contact": "Contact",
+  "user.login": "Login",
+  "user.logout": "Logout",
+  "user.profile": "Profile",
+  "user.settings": "Settings",
+  "messages.welcome": "Welcome to our app!",
+  "messages.goodbye": "Thanks for using our app!",
+  "errors.not_found": "Page not found",
+  "errors.server_error": "Internal server error",
+  "buttons.save": "Save",
+  "buttons.cancel": "Cancel",
+  "buttons.delete": "Delete"
+}

@@ -1,6 +1,7 @@
 import argv
 import filepath
 import g18n
+import g18n/locale
 import gleam/bool
 import gleam/dict
 import gleam/io
@@ -20,6 +21,8 @@ import trie
 /// gleam run generate          # Generate from flat JSON files  
 /// gleam run generate --nested # Generate from nested JSON files
 /// gleam run generate -- po    # Generate from PO files
+/// gleam run report            # Show translation report
+/// gleam run report --primary <locale> # Set primary locale for comparison
 /// gleam run help              # Show help
 /// gleam run                   # Show help (default)
 /// ```
@@ -28,6 +31,8 @@ pub fn main() {
     ["generate"] -> generate_command()
     ["generate", "--nested"] -> generate_nested_command()
     ["generate", "--po"] -> generate_po_command()
+    ["report"] -> report_command("")
+    ["report", "--primary", locale] -> report_command(locale)
     ["help"] -> help_command()
     [] -> help_command()
     _ -> {
@@ -66,6 +71,13 @@ fn generate_po_command() {
   }
 }
 
+fn report_command(primary_locale: String) {
+  case generate_translation_report(primary_locale) {
+    Ok(_) -> Nil
+    Error(msg) -> io.println_error(snag.pretty_print(msg))
+  }
+}
+
 fn help_command() {
   io.println("g18n CLI - Internationalization for Gleam")
   io.println("")
@@ -77,6 +89,8 @@ fn help_command() {
   io.println(
     "  generate --po      Generate Gleam module from PO files (gettext)",
   )
+  io.println("  report             Show translation coverage report")
+  io.println("  report --primary <locale> Set primary locale for comparison")
   io.println("  help               Show this help message")
   io.println("")
   io.println("Flat JSON usage:")
@@ -134,6 +148,58 @@ fn generate_po_translations() -> SnagResult(String) {
   use output_path <- result.try(write_module_from_po(project_name, locale_files))
   use _ <- result.try(format())
   Ok(output_path)
+}
+
+fn generate_translation_report(primary_locale: String) -> SnagResult(Nil) {
+  use project_name <- result.try(get_project_name())
+  use locale_files <- result.try(find_locale_files(project_name))
+  use locale_data <- result.try(load_all_locales(locale_files))
+  
+  // Determine primary locale
+  let primary = case primary_locale {
+    "" -> {
+      case locale_data {
+        [first, ..] -> first.0
+        [] -> "en"
+      }
+    }
+    locale -> locale
+  }
+  
+  // Find primary locale data
+  case list.find(locale_data, fn(pair) { pair.0 == primary }) {
+    Ok(#(_, primary_translations)) -> {
+      io.println("📊 Translation Validation Report")
+      io.println("Primary locale: " <> primary)
+      io.println("")
+      
+      // Generate reports for each locale compared to primary
+      list.each(locale_data, fn(pair) {
+        let #(locale_code, translations) = pair
+        
+        // Create locale for validation
+        case locale.new(string.replace(locale_code, each: "_", with: "-")) {
+          Ok(target_locale) -> {
+            let report = g18n.validate_translations(primary_translations, translations, target_locale)
+            io.println("🌍 " <> locale_code <> ":")
+            io.println(g18n.export_validation_report(report))
+            io.println("")
+          }
+          Error(_) -> {
+            io.println("❌ Invalid locale code: " <> locale_code)
+            io.println("")
+          }
+        }
+      })
+      
+      Ok(Nil)
+    }
+    Error(_) -> {
+      io.println("❌ Primary locale '" <> primary <> "' not found!")
+      io.println("Available locales: " <> string.join(list.map(locale_data, fn(pair) { pair.0 }), ", "))
+      snag.error("Primary locale not found")
+    }
+  }
 }
 
 fn format() {

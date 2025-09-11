@@ -1,0 +1,10 @@
+{
+  "app.title": "Mon Application",
+  "nav.home": "Accueil",
+  "nav.about": "À propos",
+  "user.login": "Connexion",
+  "user.logout": "Déconnexion",
+  "messages.welcome": "Bienvenue dans notre application!",
+  "errors.not_found": "Page non trouvée",
+  "buttons.save": "Enregistrer"
+}
