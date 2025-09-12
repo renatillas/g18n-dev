@@ -92,6 +92,51 @@ gleam run -m g18n/dev report --primary es
 
 Use a specific locale as the primary reference for comparison.
 
+### Key Management
+
+```sh
+# List all translation keys
+gleam run -m g18n/dev keys --list
+
+# Find keys with specific prefix
+gleam run -m g18n/dev keys --prefix ui.button
+
+# Find unused keys (requires file with used keys, one per line)
+gleam run -m g18n/dev keys --unused used-keys.txt
+```
+
+### Format Conversion
+
+```sh
+# Convert translations between formats
+gleam run -m g18n/dev convert --to flat    # Convert to flat JSON
+gleam run -m g18n/dev convert --to nested  # Convert to nested JSON  
+gleam run -m g18n/dev convert --to po      # Convert to PO files
+```
+
+### Parameter Analysis
+
+```sh
+# Check for parameter issues across all locales
+gleam run -m g18n/dev params --check
+
+# Extract parameters from a specific translation key
+gleam run -m g18n/dev params --extract user.greeting
+```
+
+### CI/CD Validation
+
+```sh
+# Validate translations with proper exit codes (perfect for CI/CD)
+gleam run -m g18n/dev check                 # Exit 0 = success, 1 = errors
+gleam run -m g18n/dev check --primary en    # Use specific primary locale
+```
+
+The `check` command is designed for automation and will:
+- Exit with code **0** if all translations are valid
+- Exit with code **1** if validation errors are found
+- Perfect for pre-commit hooks, GitHub Actions, and build pipelines
+
 ### Help
 
 ```sh
@@ -129,6 +174,48 @@ pub fn main() {
 - ✅ Flat JSON (g18n optimized)
 - ✅ Nested JSON (react-i18next, Vue i18n, Angular i18n compatible)  
 - ✅ PO files (gettext standard)
+
+## Automation & CI/CD Integration
+
+### GitHub Actions
+
+```yaml
+name: Check Translations
+on: [push, pull_request]
+
+jobs:
+  translations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "26.0"
+          gleam-version: "1.0.0"
+      - run: gleam deps download
+      - run: gleam run -m g18n/dev check --primary en
+```
+
+### Pre-commit Hook
+
+```bash
+#!/bin/sh
+# .git/hooks/pre-commit
+gleam run -m g18n/dev check --primary en
+if [ $? -ne 0 ]; then
+    echo "❌ Translation validation failed. Fix issues before committing."
+    exit 1
+fi
+```
+
+### Build Scripts
+
+```bash
+# In your build script
+echo "Validating translations..."
+gleam run -m g18n/dev check --primary en || exit 1
+echo "✅ Translations valid!"
+```
 
 ## Development
 

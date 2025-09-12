@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2024-12-01
+
+### Added
+
+- **New `keys` command**: Comprehensive key management utilities
+  - `gleam run -m g18n/dev keys --list` - List all translation keys  
+  - `gleam run -m g18n/dev keys --prefix <prefix>` - Find keys with specific prefix
+  - `gleam run -m g18n/dev keys --unused <file>` - Find unused translation keys
+- **New `convert` command**: Convert between translation formats
+  - `gleam run -m g18n/dev convert --to flat` - Convert to flat JSON format
+  - `gleam run -m g18n/dev convert --to nested` - Convert to nested JSON format  
+  - `gleam run -m g18n/dev convert --to po` - Convert to PO file format
+- **New `params` command**: Parameter analysis and validation
+  - `gleam run -m g18n/dev params --check` - Check for parameter issues across locales
+  - `gleam run -m g18n/dev params --extract <key>` - Extract parameters from specific key
+- **New `check` command**: CI/CD-ready validation with proper exit codes
+  - `gleam run -m g18n/dev check` - Validate translations and exit with status code
+  - `gleam run -m g18n/dev check --primary <locale>` - Validate with specific primary locale
+  - Exits with code 0 for success, 1 for validation errors
+- **Cross-platform FFI exit handling**: Proper process exit codes for automation
+  - JavaScript support (Node.js, Deno)
+  - Erlang support using `halt/1`
+  - Perfect for CI/CD pipelines, pre-commit hooks, and build automation
+
+### Enhanced
+
+- **All commands now support automatic format detection**: Works seamlessly with flat JSON, nested JSON, and PO files
+- **Comprehensive validation**: Detects missing keys, parameter issues, empty translations, and plural form problems
+- **Built-in g18n integration**: Uses core g18n functions like `get_keys_with_prefix()`, `find_unused_translations()`, `extract_placeholders()`
+
 ## [1.1.0] - 2024-12-01
 
 ### Added
