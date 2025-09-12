@@ -1,15 +1,6 @@
 {
   "app.title": "Mi Aplicación",
-  "app.description": "Una aplicación de ejemplo para probar traducciones",
   "nav.home": "Inicio",
-  "nav.about": "Acerca de",
-  "nav.contact": "Contacto",
   "user.login": "Iniciar sesión",
-  "user.logout": "Cerrar sesión",
-  "user.profile": "Perfil",
-  "messages.welcome": "¡Bienvenido a nuestra aplicación!",
-  "messages.goodbye": "¡Gracias por usar nuestra aplicación!",
-  "errors.not_found": "Página no encontrada",
-  "buttons.save": "Guardar",
-  "buttons.cancel": "Cancelar"
+  "buttons.save": "Guardar"
 }

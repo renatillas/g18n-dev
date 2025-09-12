@@ -1,7 +1,6 @@
 import argv
 import filepath
 import g18n
-import g18n/dev/process
 import g18n/locale
 import gleam/bool
 import gleam/dict
@@ -112,12 +111,12 @@ fn check_command(primary_locale: String) {
   case execute_check_operation(primary_locale) {
     Ok(_) -> {
       // Exit with 0 to indicate success - only for check command
-      process.exit(0)
+      exit(0)
     }
     Error(msg) -> {
       io.println_error(snag.pretty_print(msg))
       // Exit with 1 to indicate failure - only for check command
-      process.exit(1)
+      exit(1)
     }
   }
 }
@@ -137,11 +136,15 @@ fn help_command() {
   io.println("  report --primary <locale> Set primary locale for comparison")
   io.println("  keys --list        List all translation keys")
   io.println("  keys --prefix <prefix> Find keys with specific prefix")
-  io.println("  keys --unused <file>   Find unused keys (provide file with used keys)")
+  io.println(
+    "  keys --unused <file>   Find unused keys (provide file with used keys)",
+  )
   io.println("  convert --to <format>  Convert translations (flat, nested, po)")
   io.println("  params --check     Check for parameter issues across locales")
   io.println("  params --extract <key> Extract parameters from specific key")
-  io.println("  check              Validate translations and exit with error if issues found")
+  io.println(
+    "  check              Validate translations and exit with error if issues found",
+  )
   io.println("  check --primary <locale> Validate with specific primary locale")
   io.println("  help               Show this help message")
   io.println("")
@@ -329,13 +332,13 @@ fn try_load_translations(
 fn execute_keys_operation(operation: String, arg: String) -> SnagResult(Nil) {
   use project_name <- result.try(get_project_name())
   use locale_data <- result.try(try_load_translations(project_name))
-  
+
   case operation {
     "list" -> {
       io.println("🔑 Translation Keys")
       io.println("=" |> string.repeat(50))
       io.println("")
-      
+
       case locale_data {
         [] -> {
           io.println("No translations found.")
@@ -354,7 +357,7 @@ fn execute_keys_operation(operation: String, arg: String) -> SnagResult(Nil) {
       io.println("🔍 Keys with prefix: " <> arg)
       io.println("=" |> string.repeat(50))
       io.println("")
-      
+
       case locale_data {
         [] -> {
           io.println("No translations found.")
@@ -373,23 +376,24 @@ fn execute_keys_operation(operation: String, arg: String) -> SnagResult(Nil) {
       case simplifile.read(arg) {
         Ok(content) -> {
           // Simple implementation: split by lines and filter non-empty
-          let used_keys = 
+          let used_keys =
             content
             |> string.split("\n")
             |> list.map(string.trim)
             |> list.filter(fn(line) { line != "" })
-          
+
           io.println("🚫 Unused Translation Keys")
           io.println("=" |> string.repeat(50))
           io.println("")
-          
+
           case locale_data {
             [] -> {
               io.println("No translations found.")
               Ok(Nil)
             }
             [#(_locale, translations), ..] -> {
-              let unused_keys = g18n.find_unused_translations(translations, used_keys)
+              let unused_keys =
+                g18n.find_unused_translations(translations, used_keys)
               case unused_keys {
                 [] -> {
                   io.println("✅ All translation keys are being used!")
@@ -398,7 +402,11 @@ fn execute_keys_operation(operation: String, arg: String) -> SnagResult(Nil) {
                 _ -> {
                   list.each(unused_keys, io.println)
                   io.println("")
-                  io.println("Found " <> string.inspect(list.length(unused_keys)) <> " unused keys")
+                  io.println(
+                    "Found "
+                    <> string.inspect(list.length(unused_keys))
+                    <> " unused keys",
+                  )
                   Ok(Nil)
                 }
               }
@@ -415,10 +423,10 @@ fn execute_keys_operation(operation: String, arg: String) -> SnagResult(Nil) {
 fn execute_convert_operation(format: String) -> SnagResult(Nil) {
   use project_name <- result.try(get_project_name())
   use locale_data <- result.try(try_load_translations(project_name))
-  
+
   io.println("🔄 Converting translations to: " <> format)
   io.println("")
-  
+
   case format {
     "flat" | "nested" | "po" -> {
       list.each(locale_data, fn(pair) {
@@ -428,14 +436,14 @@ fn execute_convert_operation(format: String) -> SnagResult(Nil) {
           _ -> ".json"
         }
         let output_file = locale_code <> "_converted" <> file_extension
-        
+
         let content = case format {
           "flat" -> g18n.translations_to_json(translations)
           "nested" -> g18n.translations_to_nested_json(translations)
           "po" -> g18n.translations_to_po(translations)
           _ -> ""
         }
-        
+
         case simplifile.write(output_file, content) {
           Ok(_) -> io.println("✅ " <> locale_code <> " → " <> output_file)
           Error(_) -> io.println("❌ Failed to write " <> output_file)
@@ -443,20 +451,21 @@ fn execute_convert_operation(format: String) -> SnagResult(Nil) {
       })
       Ok(Nil)
     }
-    _ -> snag.error("Unknown format: " <> format <> ". Use: flat, nested, or po")
+    _ ->
+      snag.error("Unknown format: " <> format <> ". Use: flat, nested, or po")
   }
 }
 
 fn execute_params_operation(operation: String, arg: String) -> SnagResult(Nil) {
   use project_name <- result.try(get_project_name())
   use locale_data <- result.try(try_load_translations(project_name))
-  
+
   case operation {
     "check" -> {
       io.println("🔧 Parameter Validation")
       io.println("=" |> string.repeat(50))
       io.println("")
-      
+
       // Use first locale as primary for parameter checking
       case locale_data {
         [] -> {
@@ -465,28 +474,50 @@ fn execute_params_operation(operation: String, arg: String) -> SnagResult(Nil) {
         }
         [primary_pair, ..rest] -> {
           let #(_primary_locale, primary_translations) = primary_pair
-          
+
           list.each(rest, fn(pair) {
             let #(target_locale_code, target_translations) = pair
-            case locale.new(string.replace(target_locale_code, each: "_", with: "-")) {
+            case
+              locale.new(string.replace(
+                target_locale_code,
+                each: "_",
+                with: "-",
+              ))
+            {
               Ok(target_locale) -> {
-                let report = g18n.validate_translations(primary_translations, target_translations, target_locale)
-                let param_errors = list.filter(report.errors, fn(error) {
-                  case error {
-                    g18n.MissingParameter(_, _, _) -> True
-                    g18n.UnusedParameter(_, _, _) -> True
-                    _ -> False
-                  }
-                })
-                
+                let report =
+                  g18n.validate_translations(
+                    primary_translations,
+                    target_translations,
+                    target_locale,
+                  )
+                let param_errors =
+                  list.filter(report.errors, fn(error) {
+                    case error {
+                      g18n.MissingParameter(_, _, _) -> True
+                      g18n.UnusedParameter(_, _, _) -> True
+                      _ -> False
+                    }
+                  })
+
                 case param_errors {
-                  [] -> io.println("✅ " <> target_locale_code <> ": No parameter issues")
+                  [] ->
+                    io.println(
+                      "✅ " <> target_locale_code <> ": No parameter issues",
+                    )
                   _ -> {
-                    io.println("❌ " <> target_locale_code <> ": " <> string.inspect(list.length(param_errors)) <> " parameter issues")
+                    io.println(
+                      "❌ "
+                      <> target_locale_code
+                      <> ": "
+                      <> string.inspect(list.length(param_errors))
+                      <> " parameter issues",
+                    )
                   }
                 }
               }
-              Error(_) -> io.println("❌ Invalid locale code: " <> target_locale_code)
+              Error(_) ->
+                io.println("❌ Invalid locale code: " <> target_locale_code)
             }
           })
           Ok(Nil)
@@ -497,7 +528,7 @@ fn execute_params_operation(operation: String, arg: String) -> SnagResult(Nil) {
       io.println("📝 Parameters in key: " <> arg)
       io.println("=" |> string.repeat(50))
       io.println("")
-      
+
       case locale_data {
         [] -> {
           io.println("No translations found.")
@@ -535,7 +566,7 @@ fn execute_params_operation(operation: String, arg: String) -> SnagResult(Nil) {
 fn execute_check_operation(primary_locale: String) -> SnagResult(Nil) {
   use project_name <- result.try(get_project_name())
   use locale_data <- result.try(try_load_translations(project_name))
-  
+
   // Determine primary locale
   let primary = case primary_locale {
     "" -> {
@@ -546,48 +577,73 @@ fn execute_check_operation(primary_locale: String) -> SnagResult(Nil) {
     }
     locale -> locale
   }
-  
+
   // Find primary locale data
   case list.find(locale_data, fn(pair) { pair.0 == primary }) {
     Ok(#(_, primary_translations)) -> {
-      let has_errors = list.fold(locale_data, False, fn(has_error_acc, pair) {
-        let #(locale_code, translations) = pair
-        
-        case locale.new(string.replace(locale_code, each: "_", with: "-")) {
-          Ok(target_locale) -> {
-            let report = g18n.validate_translations(primary_translations, translations, target_locale)
-            case report.errors {
-              [] -> has_error_acc
-              errors -> {
-                io.println("❌ " <> locale_code <> " has " <> string.inspect(list.length(errors)) <> " issues:")
-                list.each(errors, fn(error) {
-                  case error {
-                    g18n.MissingTranslation(key, _) -> 
-                      io.println("  Missing key: " <> key)
-                    g18n.MissingParameter(key, param, _) ->
-                      io.println("  Missing parameter '" <> param <> "' in key: " <> key)
-                    g18n.UnusedParameter(key, param, _) ->
-                      io.println("  Unused parameter '" <> param <> "' in key: " <> key)
-                    g18n.EmptyTranslation(key, _) ->
-                      io.println("  Empty translation for key: " <> key)
-                    g18n.InvalidPluralForm(key, missing_forms, _) ->
-                      io.println("  Invalid plural form for key '" <> key <> "', missing: " <> string.join(missing_forms, ", "))
-                  }
-                })
-                io.println("")
-                True
+      let has_errors =
+        list.fold(locale_data, False, fn(has_error_acc, pair) {
+          let #(locale_code, translations) = pair
+
+          case locale.new(string.replace(locale_code, each: "_", with: "-")) {
+            Ok(target_locale) -> {
+              let report =
+                g18n.validate_translations(
+                  primary_translations,
+                  translations,
+                  target_locale,
+                )
+              case report.errors {
+                [] -> has_error_acc
+                errors -> {
+                  io.println(
+                    "❌ "
+                    <> locale_code
+                    <> " has "
+                    <> string.inspect(list.length(errors))
+                    <> " issues:",
+                  )
+                  list.each(errors, fn(error) {
+                    case error {
+                      g18n.MissingTranslation(key, _) ->
+                        io.println("  Missing key: " <> key)
+                      g18n.MissingParameter(key, param, _) ->
+                        io.println(
+                          "  Missing parameter '"
+                          <> param
+                          <> "' in key: "
+                          <> key,
+                        )
+                      g18n.UnusedParameter(key, param, _) ->
+                        io.println(
+                          "  Unused parameter '" <> param <> "' in key: " <> key,
+                        )
+                      g18n.EmptyTranslation(key, _) ->
+                        io.println("  Empty translation for key: " <> key)
+                      g18n.InvalidPluralForm(key, missing_forms, _) ->
+                        io.println(
+                          "  Invalid plural form for key '"
+                          <> key
+                          <> "', missing: "
+                          <> string.join(missing_forms, ", "),
+                        )
+                    }
+                  })
+                  io.println("")
+                  True
+                }
               }
             }
+            Error(_) -> {
+              io.println("❌ Invalid locale code: " <> locale_code)
+              True
+            }
           }
-          Error(_) -> {
-            io.println("❌ Invalid locale code: " <> locale_code)
-            True
-          }
-        }
-      })
-      
+        })
+
       case has_errors {
-        True -> snag.error("Translation validation failed - fix the issues above")
+        True ->
+          snag.error("Translation validation failed - fix the issues above")
         False -> {
           io.println("✅ All translations are valid!")
           Ok(Nil)
@@ -596,21 +652,20 @@ fn execute_check_operation(primary_locale: String) -> SnagResult(Nil) {
     }
     Error(_) -> {
       io.println("❌ Primary locale '" <> primary <> "' not found!")
-      io.println("Available locales: " <> string.join(list.map(locale_data, fn(pair) { pair.0 }), ", "))
+      io.println(
+        "Available locales: "
+        <> string.join(list.map(locale_data, fn(pair) { pair.0 }), ", "),
+      )
       snag.error("Primary locale not found")
     }
   }
 }
 
 fn get_all_translation_keys(translations: g18n.Translations) -> List(String) {
-  trie.fold(
-    translations |> g18n.extract_trie,
-    [],
-    fn(acc, key_parts, _value) {
-      let key = string.join(key_parts, ".")
-      [key, ..acc]
-    },
-  )
+  trie.fold(translations |> g18n.extract_trie, [], fn(acc, key_parts, _value) {
+    let key = string.join(key_parts, ".")
+    [key, ..acc]
+  })
   |> list.reverse
 }
 
@@ -951,3 +1006,7 @@ fn generate_all_locales_function(
 
   "pub fn available_locales() -> List(String) {\n  [" <> locale_list <> "]\n}"
 }
+
+@external(erlang, "g18n_dev_ffi", "exit")
+@external(javascript, "g18n_dev_ffi.mjs", "exit")
+fn exit(code: Int) -> Nil
