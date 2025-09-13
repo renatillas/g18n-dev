@@ -1,0 +1,12 @@
+{
+  "ui.button.save": "Guardar",
+  "ui.button.cancel": "Cancelar",
+  "ui.button.delete": "Eliminar",
+  "user.profile.name": "Nombre",
+  "user.profile.email": "Correo electrónico",
+  "user.profile.avatar": "",
+  "admin.settings.title": "Configuración",
+  "admin.settings.description": "",
+  "admin.users.count": "Total de Usuarios",
+  "messages.welcome": "Bienvenido a nuestra aplicación"
+}

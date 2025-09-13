@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(gleam build:*)"
+      "Bash(gleam build:*)",
+      "Read(//Users/renata-amutio/Projects/renatillas/g18n/src/**)",
+      "Read(//Users/renata-amutio/Projects/renatillas/crochet/frontend/**)"
     ],
     "deny": [],
     "ask": []

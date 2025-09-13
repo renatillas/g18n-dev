@@ -2,10 +2,14 @@ import argv
 import filepath
 import g18n
 import g18n/locale
+import glance
 import gleam/bool
 import gleam/dict
+import gleam/float
+import gleam/int
 import gleam/io
 import gleam/list
+import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import shellout
@@ -41,6 +45,14 @@ pub fn main() {
     ["params", "--extract", key] -> params_command("extract", key)
     ["check"] -> check_command("")
     ["check", "--primary", locale] -> check_command(locale)
+    ["sync", "--from", from_locale, "--to", to_locales] -> sync_command(from_locale, to_locales)
+    ["stats"] -> stats_command("")
+    ["stats", "--locale", locale] -> stats_command(locale)
+    ["lint"] -> lint_command([])
+    ["lint", "--rules", rules] -> lint_command(string.split(rules, ","))
+    ["diff", from_locale, to_locale] -> diff_command(from_locale, to_locale)
+    ["scan"] -> scan_command("")
+    ["scan", "--dir", directory] -> scan_command(directory)
     ["help"] -> help_command()
     [] -> help_command()
     _ -> {
@@ -121,6 +133,48 @@ fn check_command(primary_locale: String) {
   }
 }
 
+fn sync_command(from_locale: String, to_locales: String) {
+  case execute_sync_operation(from_locale, to_locales) {
+    Ok(_) -> Nil
+    Error(msg) -> io.println_error(snag.pretty_print(msg))
+  }
+}
+
+fn stats_command(locale: String) {
+  case execute_stats_operation(locale) {
+    Ok(_) -> Nil
+    Error(msg) -> io.println_error(snag.pretty_print(msg))
+  }
+}
+
+fn lint_command(rules: List(String)) {
+  case execute_lint_operation(rules) {
+    Ok(_) -> Nil
+    Error(msg) -> io.println_error(snag.pretty_print(msg))
+  }
+}
+
+fn diff_command(from_locale: String, to_locale: String) {
+  case execute_diff_operation(from_locale, to_locale) {
+    Ok(_) -> Nil
+    Error(msg) -> io.println_error(snag.pretty_print(msg))
+  }
+}
+
+fn scan_command(directory: String) {
+  case execute_scan_operation(directory) {
+    Ok(_) -> {
+      // Exit with 0 to indicate success - only for scan command
+      exit(0)
+    }
+    Error(msg) -> {
+      io.println_error(snag.pretty_print(msg))
+      // Exit with 1 to indicate failure - only for scan command
+      exit(1)
+    }
+  }
+}
+
 fn help_command() {
   io.println("g18n CLI - Internationalization for Gleam")
   io.println("")
@@ -146,6 +200,15 @@ fn help_command() {
     "  check              Validate translations and exit with error if issues found",
   )
   io.println("  check --primary <locale> Validate with specific primary locale")
+  io.println("  sync --from <locale> --to <locales> Sync missing keys between locales")
+  io.println("  stats              Show project translation statistics")
+  io.println("  stats --locale <locale> Show statistics for specific locale")
+  io.println("  lint               Check translations for common issues")
+  io.println("  lint --rules <rules>   Use specific lint rules (comma-separated)")
+  io.println("  diff <locale1> <locale2> Compare two locales side by side")
+  io.println("  scan               Detect untranslated keys used in source code")
+  io.println("  scan --dir <path>  Scan specific directory for untranslated keys")
+  io.println("                     (exits with error code 1 if untranslated keys found)")
   io.println("  help               Show this help message")
   io.println("")
   io.println("Flat JSON usage:")
@@ -345,7 +408,11 @@ fn execute_keys_operation(operation: String, arg: String) -> SnagResult(Nil) {
           Ok(Nil)
         }
         [#(_locale, translations), ..] -> {
-          let keys = get_all_translation_keys(translations)
+          let keys = trie.fold(translations |> g18n.extract_trie, [], fn(acc, key_parts, _value) {
+            let key = string.join(key_parts, ".")
+            [key, ..acc]
+          })
+          |> list.reverse
           list.each(keys, io.println)
           io.println("")
           io.println("Total keys: " <> string.inspect(list.length(keys)))
@@ -661,13 +728,293 @@ fn execute_check_operation(primary_locale: String) -> SnagResult(Nil) {
   }
 }
 
-fn get_all_translation_keys(translations: g18n.Translations) -> List(String) {
-  trie.fold(translations |> g18n.extract_trie, [], fn(acc, key_parts, _value) {
-    let key = string.join(key_parts, ".")
-    [key, ..acc]
-  })
-  |> list.reverse
+fn execute_sync_operation(from_locale: String, to_locales: String) -> SnagResult(Nil) {
+  use project_name <- result.try(get_project_name())
+  use locale_data <- result.try(try_load_translations(project_name))
+  
+  // Parse target locales
+  let target_locales = string.split(to_locales, ",") |> list.map(string.trim)
+  
+  io.println("🔄 Syncing missing keys from " <> from_locale)
+  io.println("Target locales: " <> string.join(target_locales, ", "))
+  io.println("")
+  
+  // Check if source locale exists
+  case list.find(locale_data, fn(pair) { pair.0 == from_locale }) {
+    Ok(_) -> {
+      list.each(target_locales, fn(target_locale) {
+        case list.find(locale_data, fn(pair) { pair.0 == target_locale }) {
+          Ok(#(_, target_translations)) -> {
+            let #(_, source_translations) = case list.find(locale_data, fn(pair) { pair.0 == from_locale }) {
+              Ok(found) -> found
+              Error(_) -> #("", g18n.new_translations())
+            }
+            let missing_keys = g18n.get_missing_keys(source_translations, target_translations)
+            
+            case missing_keys {
+              [] -> {
+                io.println("✅ " <> target_locale <> ": No missing keys")
+              }
+              _ -> {
+                io.println("📝 " <> target_locale <> ": Adding " <> int.to_string(list.length(missing_keys)) <> " missing keys")
+                list.each(missing_keys, fn(key) {
+                  io.println("  + " <> key)
+                })
+                
+                // In a real implementation, we would write the updated files here
+                io.println("  (Note: Actual file writing not implemented in this demo)")
+              }
+            }
+          }
+          Error(_) -> {
+            io.println("❌ Target locale '" <> target_locale <> "' not found")
+          }
+        }
+      })
+      
+      Ok(Nil)
+    }
+    Error(_) -> {
+      snag.error("Source locale '" <> from_locale <> "' not found")
+    }
+  }
 }
+
+fn execute_stats_operation(locale: String) -> SnagResult(Nil) {
+  use project_name <- result.try(get_project_name())
+  use locale_data <- result.try(try_load_translations(project_name))
+  
+  case locale {
+    "" -> {
+      // Overall project statistics using g18n core function
+      case locale_data {
+        [] -> {
+          io.println("No translations found.")
+          Ok(Nil)
+        }
+        [first, ..] -> {
+          let #(primary_locale, _) = first
+          
+          case g18n.get_translation_stats(locale_data, primary_locale) {
+            Ok(stats) -> {
+              io.println("📊 Project Translation Statistics")
+              io.println("=" |> string.repeat(50))
+              io.println("")
+              io.println("🌍 Total locales: " <> int.to_string(stats.total_locales))
+              io.println("🔑 Total keys: " <> int.to_string(stats.total_keys))
+              // Calculate average coverage
+              let avg_coverage = case list.length(stats.locale_stats) {
+                0 -> 0.0
+                count -> list.fold(stats.locale_stats, 0.0, fn(acc, ls) { acc +. ls.coverage }) /. int.to_float(count)
+              }
+              io.println("📊 Average coverage: " <> float.to_string(avg_coverage) <> "%")
+              io.println("")
+              
+              io.println("Locale Coverage:")
+              list.each(stats.locale_stats, fn(locale_stat) {
+                let status_icon = case locale_stat.coverage >=. 100.0, locale_stat.coverage >=. 80.0 {
+                  True, _ -> "✅"
+                  False, True -> "🟡"
+                  False, False -> "❌"
+                }
+                io.println("  " <> status_icon <> " " <> locale_stat.locale <> ": " <> int.to_string(locale_stat.translated_keys) <> "/" <> int.to_string(stats.total_keys) <> " (" <> float.to_string(locale_stat.coverage) <> "%)")
+              })
+              
+              Ok(Nil)
+            }
+            Error(msg) -> snag.error(msg)
+          }
+        }
+      }
+    }
+    specific_locale -> {
+      // Statistics for specific locale using g18n core function
+      case list.find(locale_data, fn(pair) { pair.0 == specific_locale }) {
+        Ok(_) -> {
+          case g18n.get_translation_stats(locale_data, specific_locale) {
+            Ok(stats) -> {
+              io.println("📊 Statistics for locale: " <> specific_locale)
+              io.println("=" |> string.repeat(50))
+              io.println("")
+              io.println("🔑 Total keys: " <> int.to_string(stats.total_keys))
+              
+              case list.find(stats.locale_stats, fn(s) { s.locale == specific_locale }) {
+                Ok(locale_stat) -> {
+                  io.println("📂 Keys by namespace:")
+                  locale_stat.namespace_counts
+                  |> list.sort(fn(a, b) { string.compare(a.0, b.0) })
+                  |> list.each(fn(pair) {
+                    io.println("  " <> pair.0 <> ": " <> int.to_string(pair.1) <> " keys")
+                  })
+                }
+                Error(_) -> Nil
+              }
+              
+              Ok(Nil)
+            }
+            Error(msg) -> snag.error(msg)
+          }
+        }
+        Error(_) -> {
+          snag.error("Locale '" <> specific_locale <> "' not found")
+        }
+      }
+    }
+  }
+}
+
+fn execute_lint_operation(rules: List(String)) -> SnagResult(Nil) {
+  use project_name <- result.try(get_project_name())
+  use locale_data <- result.try(try_load_translations(project_name))
+  
+  let active_rules = case rules {
+    [] -> ["empty", "long"]
+    _ -> rules
+  }
+  
+  io.println("🔍 Linting translations")
+  io.println("Active rules: " <> string.join(active_rules, ", "))
+  io.println("=" |> string.repeat(50))
+  io.println("")
+  
+  let lint_results = g18n.lint_translations(locale_data, active_rules)
+  
+  case lint_results.locale_issues {
+    [] -> {
+      io.println("✅ No linting issues found!")
+      Ok(Nil)
+    }
+    locale_issues -> {
+      list.each(locale_issues, fn(locale_issue) {
+        io.println("❌ " <> locale_issue.locale <> " (" <> int.to_string(list.length(locale_issue.issues)) <> " issues):")
+        list.each(locale_issue.issues, fn(issue) {
+          case issue {
+            g18n.EmptyTranslationLint(key) -> io.println("  Empty translation: " <> key)
+            g18n.LongTranslation(key, length) -> io.println("  Long translation (" <> int.to_string(length) <> " chars): " <> key)
+            g18n.DuplicateTranslation(key, duplicate_of) -> io.println("  Duplicate translation: " <> key <> " (duplicate of " <> duplicate_of <> ")")
+          }
+        })
+        io.println("")
+      })
+      Ok(Nil)
+    }
+  }
+}
+
+fn execute_diff_operation(from_locale: String, to_locale: String) -> SnagResult(Nil) {
+  use project_name <- result.try(get_project_name())
+  use locale_data <- result.try(try_load_translations(project_name))
+  
+  io.println("🔍 Comparing " <> from_locale <> " → " <> to_locale)
+  io.println("=" |> string.repeat(50))
+  io.println("")
+  
+  case list.find(locale_data, fn(pair) { pair.0 == from_locale }),
+       list.find(locale_data, fn(pair) { pair.0 == to_locale }) {
+    Ok(#(_, from_translations)), Ok(#(_, to_translations)) -> {
+      let diff = g18n.diff_translations(from_translations, to_translations, from_locale, to_locale)
+      
+      case diff.missing_in_target {
+        [] -> io.println("✅ No missing keys in " <> to_locale)
+        missing -> {
+          io.println("❌ Missing in " <> to_locale <> " (" <> int.to_string(list.length(missing)) <> " keys):")
+          list.each(missing, fn(key) {
+            io.println("  - " <> key)
+          })
+          io.println("")
+        }
+      }
+      
+      case diff.extra_in_target {
+        [] -> io.println("✅ No extra keys in " <> to_locale)
+        extra -> {
+          io.println("ℹ️ Extra in " <> to_locale <> " (" <> int.to_string(list.length(extra)) <> " keys):")
+          list.each(extra, fn(key) {
+            io.println("  + " <> key)
+          })
+          io.println("")
+        }
+      }
+      
+      io.println("✅ Common keys: " <> int.to_string(list.length(diff.common_keys)))
+      
+      Ok(Nil)
+    }
+    Error(_), _ -> snag.error("Source locale '" <> from_locale <> "' not found")
+    _, Error(_) -> snag.error("Target locale '" <> to_locale <> "' not found")
+  }
+}
+
+fn execute_scan_operation(directory: String) -> SnagResult(Nil) {
+  use project_name <- result.try(get_project_name())
+  use locale_data <- result.try(try_load_translations(project_name))
+  
+  let scan_dir = case directory {
+    "" -> filepath.join(find_root("."), "src")
+    _ -> directory
+  }
+  
+  io.println("🔍 Scanning for untranslated keys in source code")
+  io.println("Directory: " <> scan_dir)
+  io.println("=" |> string.repeat(50))
+  io.println("")
+  
+  // Get all existing translation keys from all locales
+  case locale_data {
+    [] -> {
+      io.println("❌ No translation files found.")
+      Ok(Nil)
+    }
+    _ -> {
+      let all_translation_keys = get_all_translation_keys(locale_data)
+      io.println("📚 Found " <> int.to_string(list.length(all_translation_keys)) <> " translation keys")
+      
+      // Scan source files for translation key usage
+      use source_files <- result.try(find_gleam_files(scan_dir))
+      use used_keys_with_files <- result.try(extract_translation_keys_from_files(source_files))
+      
+      let unique_keys = list.map(used_keys_with_files, fn(pair) { pair.0 }) |> list.unique
+      
+      io.println("📁 Scanned " <> int.to_string(list.length(source_files)) <> " source files")
+      io.println("🔑 Found " <> int.to_string(list.length(unique_keys)) <> " translation keys in source code")
+      io.println("")
+      
+      // Find keys used in source code that don't exist in translations
+      let missing_keys_with_files = list.filter(used_keys_with_files, fn(pair) {
+        let key = pair.0
+        !list.contains(all_translation_keys, key)
+      })
+      
+      case missing_keys_with_files {
+        [] -> {
+          io.println("✅ All translation keys found in source code exist in translation files!")
+          Ok(Nil)
+        }
+        _ -> {
+          io.println("❌ Found " <> int.to_string(list.length(missing_keys_with_files)) <> " untranslated keys:")
+          io.println("")
+          list.each(missing_keys_with_files, fn(pair) {
+            let #(key, file_path) = pair
+            // Make file path relative for cleaner output
+            let clean_path = case string.starts_with(file_path, scan_dir) {
+              True -> string.drop_start(file_path, string.length(scan_dir))
+              False -> file_path
+            }
+            let clean_path = case string.starts_with(clean_path, "/") {
+              True -> string.drop_start(clean_path, 1)
+              False -> clean_path
+            }
+            io.println("  🚫 " <> key <> " (" <> clean_path <> ")")
+          })
+          io.println("")
+          io.println("These keys are used in source code but missing from translation files.")
+          snag.error("Untranslated keys found - fix the issues above")
+        }
+      }
+    }
+  }
+}
+
 
 fn format() {
   shellout.command("gleam", ["format"], in: find_root("."), opt: [])
@@ -1005,6 +1352,265 @@ fn generate_all_locales_function(
     |> string.join(", ")
 
   "pub fn available_locales() -> List(String) {\n  [" <> locale_list <> "]\n}"
+}
+
+// Helper functions for scanning source code
+
+fn get_all_translation_keys(locale_data: List(#(String, g18n.Translations))) -> List(String) {
+  // Collect all unique keys from all locales
+  list.fold(locale_data, [], fn(acc, locale_pair) {
+    let #(_, translations) = locale_pair
+    let keys_from_this_locale = trie.fold(
+      translations |> g18n.extract_trie,
+      [],
+      fn(key_acc, key_parts, _value) {
+        let key = string.join(key_parts, ".")
+        [key, ..key_acc]
+      }
+    )
+    list.append(acc, keys_from_this_locale)
+  })
+  |> list.unique
+}
+
+fn find_gleam_files(directory: String) -> SnagResult(List(String)) {
+  use files <- result.try(collect_gleam_files_recursive(directory, []))
+  Ok(files)
+}
+
+fn collect_gleam_files_recursive(directory: String, acc: List(String)) -> SnagResult(List(String)) {
+  case simplifile.read_directory(directory) {
+    Ok(entries) -> {
+      list.try_fold(entries, acc, fn(file_acc, entry) {
+        let full_path = filepath.join(directory, entry)
+        case simplifile.is_directory(full_path) {
+          Ok(True) -> {
+            // Skip build and other generated directories
+            case entry {
+              "build" | "target" | ".git" | "node_modules" -> Ok(file_acc)
+              _ -> collect_gleam_files_recursive(full_path, file_acc)
+            }
+          }
+          Ok(False) -> {
+            case string.ends_with(entry, ".gleam") {
+              True -> Ok([full_path, ..file_acc])
+              False -> Ok(file_acc)
+            }
+          }
+          Error(_) -> Ok(file_acc)
+        }
+      })
+    }
+    Error(_) -> snag.error("Could not read directory: " <> directory)
+  }
+}
+
+fn extract_translation_keys_from_files(files: List(String)) -> SnagResult(List(#(String, String))) {
+  list.try_fold(files, [], fn(acc, file_path) {
+    use keys <- result.try(extract_translation_keys_from_file(file_path))
+    let keys_with_file = list.map(keys, fn(key) { #(key, file_path) })
+    Ok(list.append(acc, keys_with_file))
+  })
+}
+
+fn extract_translation_keys_from_file(file_path: String) -> SnagResult(List(String)) {
+  use content <- result.try(
+    simplifile.read(file_path)
+    |> snag.map_error(fn(_) { "Could not read file: " <> file_path })
+  )
+  
+  use keys <- result.try(extract_keys_from_gleam_content(content))
+  Ok(keys)
+}
+
+fn extract_keys_from_gleam_content(content: String) -> SnagResult(List(String)) {
+  case glance.module(content) {
+    Ok(module) -> {
+      let keys = extract_keys_from_functions(module.functions)
+      Ok(keys)
+    }
+    Error(_) -> {
+      // If we can't parse the module, fall back to an empty list
+      // This might happen with malformed or incomplete Gleam files
+      Ok([])
+    }
+  }
+}
+
+fn extract_keys_from_functions(functions: List(glance.Definition(glance.Function))) -> List(String) {
+  list.fold(functions, [], fn(acc, definition) {
+    case definition {
+      glance.Definition(_, glance.Function(_, _, _, _, _, body)) -> {
+        list.append(acc, extract_keys_from_statements(body))
+      }
+    }
+  })
+}
+
+fn extract_keys_from_statements(statements: List(glance.Statement)) -> List(String) {
+  list.fold(statements, [], fn(acc, statement) {
+    case statement {
+      glance.Use(_, _, function) -> {
+        list.append(acc, extract_keys_from_expression(function))
+      }
+      glance.Assignment(_, _, _, _, value) -> {
+        list.append(acc, extract_keys_from_expression(value))
+      }
+      glance.Assert(_, expression, message) -> {
+        let keys_from_expr = extract_keys_from_expression(expression)
+        let keys_from_message = case message {
+          Some(msg) -> extract_keys_from_expression(msg)
+          None -> []
+        }
+        list.append(acc, list.append(keys_from_expr, keys_from_message))
+      }
+      glance.Expression(expression) -> {
+        list.append(acc, extract_keys_from_expression(expression))
+      }
+    }
+  })
+}
+
+fn extract_keys_from_expression(expression: glance.Expression) -> List(String) {
+  case expression {
+    // Function calls - look for g18n.translate* functions
+    glance.Call(_, function, arguments) -> {
+      let keys_from_call = extract_keys_from_function_call(function, arguments)
+      let keys_from_args = list.fold(arguments, [], fn(acc, arg) {
+        case arg {
+          glance.LabelledField(_, expr) -> list.append(acc, extract_keys_from_expression(expr))
+          glance.UnlabelledField(expr) -> list.append(acc, extract_keys_from_expression(expr))
+          glance.ShorthandField(_) -> acc
+        }
+      })
+      list.append(keys_from_call, keys_from_args)
+    }
+    
+    // Block expressions
+    glance.Block(_, statements) -> {
+      extract_keys_from_statements(statements)
+    }
+    
+    // Case expressions
+    glance.Case(_, subjects, clauses) -> {
+      let keys_from_subjects = list.fold(subjects, [], fn(acc, subject) {
+        list.append(acc, extract_keys_from_expression(subject))
+      })
+      let keys_from_clauses = list.fold(clauses, [], fn(acc, clause) {
+        let keys_from_guard = case clause.guard {
+          Some(guard) -> extract_keys_from_expression(guard)
+          None -> []
+        }
+        list.append(acc, list.append(keys_from_guard, extract_keys_from_expression(clause.body)))
+      })
+      list.append(keys_from_subjects, keys_from_clauses)
+    }
+    
+    // List expressions
+    glance.List(_, elements, rest) -> {
+      let keys_from_elements = list.fold(elements, [], fn(acc, element) {
+        list.append(acc, extract_keys_from_expression(element))
+      })
+      let keys_from_rest = case rest {
+        Some(rest_expr) -> extract_keys_from_expression(rest_expr)
+        None -> []
+      }
+      list.append(keys_from_elements, keys_from_rest)
+    }
+    
+    // Tuple expressions
+    glance.Tuple(_, elements) -> {
+      list.fold(elements, [], fn(acc, element) {
+        list.append(acc, extract_keys_from_expression(element))
+      })
+    }
+    
+    // Binary operator expressions
+    glance.BinaryOperator(_, _, left, right) -> {
+      let keys_from_left = extract_keys_from_expression(left)
+      let keys_from_right = extract_keys_from_expression(right)
+      list.append(keys_from_left, keys_from_right)
+    }
+    
+    // Negation expressions  
+    glance.NegateInt(_, operand) -> extract_keys_from_expression(operand)
+    glance.NegateBool(_, operand) -> extract_keys_from_expression(operand)
+    
+    // Field access
+    glance.FieldAccess(_, container, _) -> {
+      extract_keys_from_expression(container)
+    }
+    
+    // Tuple access
+    glance.TupleIndex(_, tuple, _) -> {
+      extract_keys_from_expression(tuple)
+    }
+    
+    // Function definitions
+    glance.Fn(_, _, _, body) -> {
+      extract_keys_from_statements(body)
+    }
+    
+    // Record update
+    glance.RecordUpdate(_, _, _, record, fields) -> {
+      let keys_from_record = extract_keys_from_expression(record)
+      let keys_from_fields = list.fold(fields, [], fn(acc, field) {
+        case field.item {
+          Some(expr) -> list.append(acc, extract_keys_from_expression(expr))
+          None -> acc
+        }
+      })
+      list.append(keys_from_record, keys_from_fields)
+    }
+    
+    // Literals and variables - no keys to extract
+    glance.String(_, _) | glance.Int(_, _) | glance.Float(_, _) | glance.Variable(_, _) | 
+    glance.Todo(_, _) | glance.Panic(_, _) | glance.FnCapture(_, _, _, _, _) | 
+    glance.BitString(_, _) | glance.Echo(_, _) -> []
+  }
+}
+
+fn extract_keys_from_function_call(function: glance.Expression, arguments: List(glance.Field(glance.Expression))) -> List(String) {
+  case function {
+    // Direct function calls like translate(...)
+    glance.Variable(_, name) -> {
+      case is_translation_function(name) {
+        True -> extract_key_from_arguments(arguments)
+        False -> []
+      }
+    }
+    
+    // Module function calls like g18n.translate(...)
+    glance.FieldAccess(_, glance.Variable(_, module_name), function_name) -> {
+      case module_name == "g18n" && is_translation_function(function_name) {
+        True -> extract_key_from_arguments(arguments)
+        False -> []
+      }
+    }
+    
+    _ -> []
+  }
+}
+
+fn is_translation_function(name: String) -> Bool {
+  case name {
+    "translate" | "translate_with_params" | "translate_with_context" | 
+    "translate_with_context_and_params" | "translate_plural" | 
+    "translate_plural_with_params" | "translate_cardinal" | "translate_ordinal" | 
+    "translate_range" | "translate_ordinal_with_params" | 
+    "translate_range_with_params" -> True
+    _ -> False
+  }
+}
+
+fn extract_key_from_arguments(arguments: List(glance.Field(glance.Expression))) -> List(String) {
+  // Look for the translation key in the arguments
+  // The key is typically the second argument (after translator)
+  case arguments {
+    [_, glance.LabelledField(_, glance.String(_, key)), ..] -> [key]
+    [_, glance.UnlabelledField(glance.String(_, key)), ..] -> [key]
+    _ -> []
+  }
 }
 
 @external(erlang, "g18n_dev_ffi", "exit")

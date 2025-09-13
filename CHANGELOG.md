@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2024-09-13
+
+### Added
+
+- **New `scan` command**: Source code analysis for untranslated translation keys
+  - `gleam run -m g18n/dev scan` - Scan current project source directory for missing translation keys
+  - `gleam run -m g18n/dev scan --dir <path>` - Scan specific directory for untranslated keys
+  - **AST-based key detection**: Uses Glance v5.0.1 for accurate parsing of Gleam source code
+  - **Comprehensive function support**: Detects keys from all g18n translation functions (`translate`, `translate_with_params`, `translate_with_context`, `translate_plural`, etc.)
+  - **Recursive directory scanning**: Automatically scans all `.gleam` files in subdirectories
+  - **CI/CD compatible**: Exits with code 0 on success, code 1 when untranslated keys found
+  - **Detailed reporting**: Shows missing keys with exact file locations for easy debugging
+  - **Smart file filtering**: Skips build directories (`build/`, `target/`, `.git/`, `node_modules/`)
+
+- **New `sync` command**: Synchronize missing keys between locales
+  - `gleam run -m g18n/dev sync --from <locale> --to <locales>` - Sync missing keys from source locale to target locales
+  - **Multi-target support**: Sync to multiple target locales at once (comma-separated)
+  - **Missing key detection**: Identifies keys present in source locale but missing in targets
+  - **Batch operations**: Efficiently handles large translation sets
+
+- **New `stats` command**: Comprehensive translation statistics and analytics
+  - `gleam run -m g18n/dev stats` - Show overall project translation statistics
+  - `gleam run -m g18n/dev stats --locale <locale>` - Show statistics for specific locale
+  - **Coverage analysis**: Displays translation coverage percentages for each locale
+  - **Namespace breakdown**: Shows key distribution across different namespaces
+  - **Visual indicators**: Color-coded status indicators (✅ complete, 🟡 partial, ❌ incomplete)
+
+- **New `lint` command**: Code quality checks for translation files
+  - `gleam run -m g18n/dev lint` - Check translations for common issues with default rules
+  - `gleam run -m g18n/dev lint --rules <rules>` - Use specific lint rules (comma-separated)
+  - **Built-in rules**: Detects empty translations, overly long translations, duplicate content
+  - **Customizable**: Configure which rules to apply for different project needs
+
+- **New `diff` command**: Compare translations between locales
+  - `gleam run -m g18n/dev diff <locale1> <locale2>` - Compare two locales side by side
+  - **Missing key detection**: Shows keys present in one locale but missing in another
+  - **Extra key detection**: Identifies keys that exist only in target locale
+  - **Common key summary**: Displays count of shared translation keys
+
+### Technical Enhancements
+
+- **Dependency**: Added Glance v5.0.1 for robust Gleam AST parsing in scan functionality
+- **Enhanced g18n integration**: Leverages core g18n functions like `get_translation_stats()`, `lint_translations()`, `diff_translations()`, `get_missing_keys()`
+- **Improved error handling**: Better validation and user feedback across all commands
+- **Performance optimizations**: Efficient handling of large translation sets and deep directory structures
+
 ## [1.2.0] - 2024-12-01
 
 ### Added

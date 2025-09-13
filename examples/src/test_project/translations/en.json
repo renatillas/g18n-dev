@@ -1,0 +1,13 @@
+{
+  "ui.button.save": "Save",
+  "ui.button.cancel": "Cancel", 
+  "ui.button.delete": "Delete",
+  "user.profile.name": "Name",
+  "user.profile.email": "Email",
+  "user.profile.avatar": "Profile Picture",
+  "admin.settings.title": "Settings",
+  "admin.settings.description": "Manage your application settings",
+  "admin.users.count": "Total Users",
+  "messages.welcome": "Welcome to our application",
+  "messages.goodbye": "Thank you for using our service"
+}
