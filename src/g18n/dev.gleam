@@ -1437,14 +1437,14 @@ fn generate_single_locale_functions(
 
   let translations_func =
     "pub fn "
-    <> locale_code
+    <> string.lowercase(locale_code)
     <> "_translations() -> g18n.Translations {\n  g18n.new_translations()\n"
     <> translations_list
     <> "\n}"
 
   let locale_func =
     "pub fn "
-    <> locale_code
+    <> string.lowercase(locale_code)
     <> "_locale() -> locale.Locale {\n  let assert Ok(locale) = locale.new(\""
     <> string.replace(locale_code, each: "_", with: "-")
     <> "\")"
@@ -1453,12 +1453,12 @@ fn generate_single_locale_functions(
 
   let translator_func =
     "pub fn "
-    <> locale_code
+    <> string.lowercase(locale_code)
     <> "_translator() -> g18n.Translator {\n  "
     <> "g18n.new_translator("
-    <> locale_code
+    <> string.lowercase(locale_code)
     <> "_locale(), "
-    <> locale_code
+    <> string.lowercase(locale_code)
     <> "_translations())\n\n}"
 
   translations_func <> "\n\n" <> locale_func <> "\n\n" <> translator_func
