@@ -1614,11 +1614,11 @@ fn extract_keys_from_expression(expression: glance.Expression) -> List(String) {
       let keys_from_args =
         list.fold(arguments, [], fn(acc, arg) {
           case arg {
-            glance.LabelledField(_, expr) ->
+            glance.LabelledField(_, _, expr) ->
               list.append(acc, extract_keys_from_expression(expr))
             glance.UnlabelledField(expr) ->
               list.append(acc, extract_keys_from_expression(expr))
-            glance.ShorthandField(_) -> acc
+            glance.ShorthandField(_, _) -> acc
           }
         })
       list.append(keys_from_call, keys_from_args)
@@ -1720,7 +1720,7 @@ fn extract_keys_from_expression(expression: glance.Expression) -> List(String) {
     | glance.Panic(_, _)
     | glance.FnCapture(_, _, _, _, _)
     | glance.BitString(_, _)
-    | glance.Echo(_, _) -> []
+    | glance.Echo(_, _, _) -> []
   }
 }
 
@@ -1772,7 +1772,7 @@ fn extract_key_from_arguments(
   // Look for the translation key in the arguments
   // The key is typically the second argument (after translator)
   case arguments {
-    [_, glance.LabelledField(_, glance.String(_, key)), ..] -> [key]
+    [_, glance.LabelledField(_, _, glance.String(_, key)), ..] -> [key]
     [_, glance.UnlabelledField(glance.String(_, key)), ..] -> [key]
     _ -> []
   }
